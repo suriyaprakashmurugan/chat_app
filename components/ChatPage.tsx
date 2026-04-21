@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import ChatList from "@/components/ChatList";
-import ChatMessages from "@/components/ChatMessages";
+import MessageList from "@/components/MessageList";
 import ChatHeader from "@/components/ChatHeader";
-import ChatInput from "@/components/ChatInput";
+import MessageInput from "@/components/MessageInput";
 
 export default function ChatPage() {
   const [text, setText] = useState("");
@@ -16,6 +16,7 @@ export default function ChatPage() {
   const [chatName, setChatName] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
   const [chats, setChats] = useState<any[]>([]);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get current user
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function ChatPage() {
     };
   }, [selectedChatId, userId]);
 
-  // Typing indicator
+  // ✅ Typing indicator (fix: subscribe once, no memory leaks)
   useEffect(() => {
     if (!selectedChatId || !userId) return;
 
@@ -96,7 +97,7 @@ export default function ChatPage() {
           payload.payload.user_id !== userId
         ) {
           setIsTyping(true);
-          setTimeout(() => setIsTyping(false), 2000);
+          setTimeout(() => setIsTyping(false), 1500);
         }
       })
       .subscribe();
@@ -106,9 +107,16 @@ export default function ChatPage() {
     };
   }, [selectedChatId, userId]);
 
+  // ✅ Debounced typing (IMPORTANT: prevent spam)
   const handleTyping = async () => {
     if (!selectedChatId || !userId) return;
 
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Send typing event
     await supabase.channel("typing-channel").send({
       type: "broadcast",
       event: "typing",
@@ -117,6 +125,11 @@ export default function ChatPage() {
         chat_id: selectedChatId,
       },
     });
+
+    // Set timeout to prevent spam (only allow typing every 1 second)
+    typingTimeoutRef.current = setTimeout(() => {
+      typingTimeoutRef.current = null;
+    }, 1000);
   };
 
   const sendMessage = async () => {
@@ -164,18 +177,18 @@ export default function ChatPage() {
             />
 
             {/* Messages Area */}
-            <ChatMessages
+            <MessageList
               selectedChatId={selectedChatId}
               userId={userId}
               isTyping={isTyping}
             />
 
             {/* Input Area */}
-            <ChatInput
+            <MessageInput
               text={text}
-              onTextChange={setText}
-              onSendMessage={sendMessage}
-              onTyping={handleTyping}
+              setText={setText}
+              sendMessage={sendMessage}
+              handleTyping={handleTyping}
               loading={loading}
             />
           </>

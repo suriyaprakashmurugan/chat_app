@@ -12,7 +12,7 @@ interface Message {
   seen?: boolean;
 }
 
-interface ChatMessagesProps {
+interface MessageListProps {
   selectedChatId: string | null;
   userId: string | null;
   isTyping: boolean;
@@ -20,11 +20,11 @@ interface ChatMessagesProps {
 
 const PAGE_SIZE = 20;
 
-export default function ChatMessages({
+export default function MessageList({
   selectedChatId,
   userId,
   isTyping,
-}: ChatMessagesProps) {
+}: MessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [oldestTime, setOldestTime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -171,16 +171,21 @@ export default function ChatMessages({
             >
               <div className="break-words">{msg.content}</div>
               <div
-                className={`text-xs mt-2 ${
+                className={`text-xs mt-2 flex items-center gap-1 ${
                   msg.user_id === userId
                     ? "text-blue-100"
                     : "text-slate-600 dark:text-slate-400"
                 }`}
               >
-                {new Date(msg.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                <span>
+                  {new Date(msg.created_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                {msg.user_id === userId && (
+                  <span>{msg.seen ? "✓✓" : "✓"}</span>
+                )}
               </div>
             </div>
           </div>
