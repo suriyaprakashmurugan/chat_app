@@ -59,6 +59,22 @@ export default function ChatPage() {
     }
   }, [selectedChatId, chats]);
 
+  // ✅ Mark messages as seen when chat is selected
+  useEffect(() => {
+    if (!selectedChatId || !userId) return;
+
+    const markSeen = async () => {
+      await supabase
+        .from("messages")
+        .update({ seen_at: new Date().toISOString() })
+        .eq("chat_id", selectedChatId)
+        .neq("user_id", userId)
+        .is("seen_at", null);
+    };
+
+    markSeen();
+  }, [selectedChatId, userId]);
+
   // Presence tracking for online users
   useEffect(() => {
     if (!selectedChatId || !userId) return;

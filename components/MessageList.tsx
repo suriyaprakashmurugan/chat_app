@@ -9,7 +9,7 @@ interface Message {
   user_id: string;
   created_at: string;
   chat_id: string;
-  seen?: boolean;
+  seen_at?: string | null;
 }
 
 interface MessageListProps {
@@ -31,12 +31,14 @@ export default function MessageList({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesLengthRef = useRef(0);
+  const isAtBottomRef = useRef(true); // Track if user is at bottom
 
-  // ✅ Auto-scroll ONLY when new messages are added (not on scroll)
+  // ✅ Auto-scroll ONLY if user is at bottom AND new messages arrive
   useEffect(() => {
-    if (!messagesEndRef.current) return;
+    if (!messagesEndRef.current || !isAtBottomRef.current) return;
+    
     if (messages.length > messagesLengthRef.current) {
-      // Only scroll if new messages were added
+      // Only scroll if new messages were added AND user is at bottom
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
     messagesLengthRef.current = messages.length;
@@ -107,16 +109,25 @@ export default function MessageList({
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
           filter: `chat_id=eq.${selectedChatId}`,
         },
         (payload) => {
-          setMessages((prev) => {
-            const exists = prev.find((m) => m.id === payload.new.id);
-            return exists ? prev : [...prev, payload.new as Message];
-          });
+          if (payload.eventType === "INSERT") {
+            setMessages((prev) => {
+              const exists = prev.find((m) => m.id === payload.new.id);
+              return exists ? prev : [...prev, payload.new as Message];
+            });
+          }
+          if (payload.eventType === "UPDATE") {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === payload.new.id ? (payload.new as Message) : m
+              )
+            );
+          }
         },
       )
       .subscribe();
@@ -126,12 +137,19 @@ export default function MessageList({
     };
   }, [selectedChatId]);
 
-  // ✅ Scroll trigger for infinite scroll
+  // ✅ Scroll trigger for infinite scroll + detect if at bottom
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
+    
+    // Check if at top → load older messages
     if (container.scrollTop === 0 && !isLoading && oldestTime) {
       loadMore(container);
     }
+    
+    // ✅ Check if user is at bottom (within 100px)
+    const isAtBottom = 
+      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    isAtBottomRef.current = isAtBottom;
   };
 
   return (
@@ -184,9 +202,20 @@ export default function MessageList({
                   })}
                 </span>
                 {msg.user_id === userId && (
-                  <span>{msg.seen ? "✓✓" : "✓"}</span>
+                  <span>{msg.seen_at ? "✓✓" : "✓"}</span>
                 )}
               </div>
+              {msg.user_id === userId && msg.seen_at && (
+                <div
+                  className={`text-[10px] mt-0.5 ${
+                    msg.user_id === userId
+                      ? "text-blue-100"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  Seen {new Date(msg.seen_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              )}
             </div>
           </div>
         ))
