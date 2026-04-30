@@ -98,6 +98,21 @@ export default function ChatList({ onSelect }: any) {
   useEffect(() => {
     if (!userId) return;
 
+    // Helper to refetch unread count for a specific chat
+    const refetchUnreadCount = async (chatId: string) => {
+      const { count } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("chat_id", chatId)
+        .neq("user_id", userId)
+        .is("seen_at", null);
+
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [chatId]: count || 0,
+      }));
+    };
+
     const channel = supabase
       .channel("chat-list-updates")
       .on(
@@ -109,7 +124,6 @@ export default function ChatList({ onSelect }: any) {
         },
         (payload) => {
           const newMsg = payload.new as Message;
-          const oldMsg = payload.old as Message;
           const chatId = newMsg?.chat_id;
           if (!chatId) return;
 
@@ -136,12 +150,9 @@ export default function ChatList({ onSelect }: any) {
               [chatId]: newMsg,
             }));
 
-            // ✅ If seen_at was updated and unread, decrement count
-            if (oldMsg?.seen_at === null && newMsg?.seen_at !== null) {
-              setUnreadCounts((prev) => ({
-                ...prev,
-                [chatId]: Math.max(0, (prev[chatId] || 0) - 1),
-              }));
+            // ✅ If seen_at was updated, refetch the unread count for accuracy
+            if (newMsg?.seen_at) {
+              refetchUnreadCount(chatId);
             }
           }
         }
@@ -155,6 +166,12 @@ export default function ChatList({ onSelect }: any) {
 
   const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
+    // ✅ Optimistic update: clear unread count when selecting chat
+    // It will be marked as seen by ChatPage effect
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [chatId]: 0,
+    }));
     onSelect(chatId);
   };
 
