@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import GoogleLoginButton from "./GoogleLoginButton";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -101,6 +102,7 @@ export default function AuthPage() {
             <a href="/forgot-password" className="text-blue-500 text-sm">
               Forgot Password?
             </a>
+            <GoogleLoginButton />
           </div>
         </div>
       </div>

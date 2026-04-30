@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import AuthPage from "@/components/AuthPage";
 import ChatPage from "@/components/ChatPage";
-import GoogleLoginButton from "@/components/GoogleLoginButton";
 
 export default function Home() {
   const [session, setSession] = useState<any>(null);
@@ -57,7 +56,6 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-4">
       <AuthPage />
-      <GoogleLoginButton />
     </div>
   );
 }
